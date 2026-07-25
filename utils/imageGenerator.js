@@ -66,7 +66,7 @@ const findLocalBrowser = async () => {
 };
 
 /** Lazily launch (and reuse) a single headless browser. */
-const getBrowser = async () => {
+export const getBrowser = async () => {
   if (browserInstance && browserInstance.connected) {
     return browserInstance;
   }
@@ -80,8 +80,13 @@ const getBrowser = async () => {
     executablePath,
     headless: true,
     args: isVercel
-      ? chromium.args
-      : ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'],
+      ? [...chromium.args, '--disable-blink-features=AutomationControlled']
+      : [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--font-render-hinting=none',
+          '--disable-blink-features=AutomationControlled',
+        ],
   });
   return browserInstance;
 };

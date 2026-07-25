@@ -1,56 +1,143 @@
 /**
  * Fraud-check lookup against EliteMart.
  *
- * Vercel datacenter IPs are often blocked by Cloudflare (403). We:
- * 1. Warm up cookies from the fraud-check page
- * 2. Send browser-like headers
- * 3. Allow FRAUD_CHECK_COOKIE / FRAUD_CHECK_LOOKUP_URL overrides
+ * Raw fetch from Vercel often hits Cloudflare's "Just a moment..." wall.
+ * Strategy:
+ * 1. Try a normal HTTP POST (works on most home/office IPs)
+ * 2. On Cloudflare challenge / 403, open a real Chromium page, wait out the
+ *    challenge, then call /fraud-check/lookup from same-origin browser JS
  */
 
+import { getBrowser } from './imageGenerator.js';
+
 const DEFAULT_LOOKUP_URL = 'https://elitemart.com.bd/fraud-check/lookup';
-const WARMUP_URL = 'https://elitemart.com.bd/fraud-check';
+const FRAUD_CHECK_PAGE = 'https://elitemart.com.bd/fraud-check';
+
+const BROWSER_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36';
 
 const BROWSER_HEADERS = {
-  Accept: 'application/json, text/plain, */*',
+  Accept: '*/*',
   'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8',
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'User-Agent': BROWSER_UA,
   Origin: 'https://elitemart.com.bd',
   Referer: 'https://elitemart.com.bd/fraud-check',
-  'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+  'sec-ch-ua': '"Not;A=Brand";v="8", "Chromium";v="150", "Google Chrome";v="150"',
   'sec-ch-ua-mobile': '?0',
-  'sec-ch-ua-platform': '"Windows"',
+  'sec-ch-ua-platform': '"macOS"',
   'sec-fetch-dest': 'empty',
   'sec-fetch-mode': 'cors',
   'sec-fetch-site': 'same-origin',
 };
 
-const collectSetCookie = (response) => {
-  if (typeof response.headers.getSetCookie === 'function') {
-    return response.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
-  }
-  const single = response.headers.get('set-cookie');
-  return single ? single.split(',').map((c) => c.split(';')[0].trim()).join('; ') : '';
+const isCloudflareChallenge = (status, bodyText) => {
+  if (status === 403) return true;
+  const text = String(bodyText || '');
+  return (
+    text.includes('Just a moment...') ||
+    text.includes('cf-browser-verification') ||
+    text.includes('challenge-platform') ||
+    text.includes('cf-challenge')
+  );
 };
 
-const warmUpCookies = async () => {
+const parseJsonSafe = (raw) => {
   try {
-    const response = await fetch(WARMUP_URL, {
-      method: 'GET',
-      headers: {
-        ...BROWSER_HEADERS,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'none',
-        'sec-fetch-user': '?1',
-        'Upgrade-Insecure-Requests': '1',
-      },
-      redirect: 'follow',
-    });
-    return collectSetCookie(response);
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    return '';
+    return null;
+  }
+};
+
+const lookupViaFetch = async (phone) => {
+  const lookupUrl = process.env.FRAUD_CHECK_LOOKUP_URL || DEFAULT_LOOKUP_URL;
+  const cookie = process.env.FRAUD_CHECK_COOKIE || '';
+
+  const response = await fetch(lookupUrl, {
+    method: 'POST',
+    headers: {
+      ...BROWSER_HEADERS,
+      'Content-Type': 'application/json',
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    body: JSON.stringify({ phone }),
+  });
+
+  const raw = await response.text();
+  return {
+    status: response.status,
+    raw,
+    parsed: parseJsonSafe(raw),
+  };
+};
+
+/**
+ * Uses the same Chromium we already ship for PNG rendering.
+ * Same-origin fetch inside the page bypasses CORS and usually clears CF.
+ */
+const lookupViaBrowser = async (phone) => {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+
+  try {
+    await page.setUserAgent(BROWSER_UA);
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': BROWSER_HEADERS['Accept-Language'],
+    });
+
+    // Soften obvious automation signals
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    });
+
+    await page.goto(FRAUD_CHECK_PAGE, {
+      waitUntil: 'domcontentloaded',
+      timeout: 45000,
+    });
+
+    // Wait until Cloudflare interstitial is gone (or timeout)
+    await page
+      .waitForFunction(
+        () => {
+          const title = document.title || '';
+          return !title.includes('Just a moment') && !title.includes('Attention Required');
+        },
+        { timeout: 40000 },
+      )
+      .catch(() => {});
+
+    // Give challenge JS a short moment after title clears
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const result = await page.evaluate(async (mobile) => {
+      const response = await fetch('/fraud-check/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: '*/*',
+        },
+        body: JSON.stringify({ phone: mobile }),
+        credentials: 'include',
+      });
+
+      const raw = await response.text();
+      let parsed = null;
+      try {
+        parsed = raw ? JSON.parse(raw) : null;
+      } catch {
+        parsed = null;
+      }
+
+      return {
+        status: response.status,
+        raw: raw.slice(0, 2000),
+        parsed,
+      };
+    }, phone);
+
+    return result;
+  } finally {
+    await page.close().catch(() => {});
   }
 };
 
@@ -65,41 +152,32 @@ export const lookupFraudByNumber = async (number) => {
     return { ok: false, status: 400, error: '"number" query parameter is required' };
   }
 
-  const lookupUrl = process.env.FRAUD_CHECK_LOOKUP_URL || DEFAULT_LOOKUP_URL;
-  const warmed = await warmUpCookies();
-  const cookie = [process.env.FRAUD_CHECK_COOKIE, warmed].filter(Boolean).join('; ');
+  // 1) Fast path — plain fetch (works locally / non-blocked IPs)
+  let result = await lookupViaFetch(phone);
 
-  const response = await fetch(lookupUrl, {
-    method: 'POST',
-    headers: {
-      ...BROWSER_HEADERS,
-      'Content-Type': 'application/json',
-      ...(cookie ? { Cookie: cookie } : {}),
-    },
-    body: JSON.stringify({ phone }),
-  });
-
-  const raw = await response.text();
-  let parsed = null;
-  try {
-    parsed = raw ? JSON.parse(raw) : null;
-  } catch {
-    parsed = null;
+  // 2) Cloudflare wall — retry inside real Chromium
+  if (isCloudflareChallenge(result.status, result.raw) || !result.parsed) {
+    try {
+      result = await lookupViaBrowser(phone);
+    } catch (err) {
+      return {
+        ok: false,
+        status: 502,
+        error: `Browser lookup failed: ${err.message}`,
+        details: result.raw?.slice?.(0, 300) ?? null,
+      };
+    }
   }
 
-  if (!response.ok) {
-    const cloudflareHint =
-      response.status === 403
-        ? ' Upstream blocked this server IP (common on Vercel/Cloudflare). Set FRAUD_CHECK_COOKIE from a browser session, or host outside blocked cloud IPs.'
-        : '';
-
+  if (result.status < 200 || result.status >= 300 || !result.parsed) {
     return {
       ok: false,
-      status: response.status,
-      error: `Fraud check lookup failed.${cloudflareHint}`.trim(),
-      details: parsed ?? raw.slice(0, 300),
+      status: result.status || 502,
+      error:
+        'Fraud check lookup failed. Cloudflare is still blocking this server. Try again, or host outside Vercel.',
+      details: result.parsed ?? result.raw?.slice?.(0, 300) ?? null,
     };
   }
 
-  return { ok: true, data: parsed };
+  return { ok: true, data: result.parsed };
 };

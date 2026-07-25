@@ -246,19 +246,17 @@ configuration errors.
 
 ### `/api?number=...` returns 403 on Vercel
 
-EliteMart sits behind Cloudflare. Vercel datacenter IPs are often blocked, so
-the same lookup that works on your laptop can fail after deploy.
+EliteMart sits behind Cloudflare ("Just a moment..."). Vercel datacenter IPs
+are challenged, so a plain `fetch` often fails after deploy even though the
+same URL works in your browser.
 
-Fixes:
+This project now retries the lookup inside headless Chromium (same browser used
+for PNG rendering). Redeploy after pulling the latest code.
 
-1. Redeploy the latest code (better browser headers + cookie warm-up).
-2. If it still returns 403, open [elitemart.com.bd/fraud-check](https://elitemart.com.bd/fraud-check) in Chrome, copy the request `Cookie` header from DevTools → Network, then add it in Vercel as:
+If Chromium is still challenged:
 
-```bash
-FRAUD_CHECK_COOKIE=cf_clearance=...; other=...
-```
-
-3. Redeploy after saving the env var. Cookies expire, so refresh them when 403 returns.
+1. Prefer hosting the API on a normal VPS (not Cloudflare-blocked cloud IPs), or
+2. Use `POST /generate` with the full report JSON copied from the EliteMart UI.
 
 ## Official Vercel References
 
