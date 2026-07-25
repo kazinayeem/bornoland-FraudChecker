@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fraud Report Image Generator</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    background:
+      radial-gradient(900px 500px at -10% -20%, #e6ebff 0%, rgba(230, 235, 255, 0) 60%),
+      radial-gradient(800px 500px at 110% 120%, #e0f6ec 0%, rgba(224, 246, 236, 0) 55%),
+      linear-gradient(160deg, #f6f8fc 0%, #eef1f8 100%);
+    min-height: 100vh;
+    color: #0f172a;
+    padding: 32px 24px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    box-shadow: 0 8px 18px rgba(79, 70, 229, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.04);
+    padding: 22px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #64748b;
+    margin-bottom: 14px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 480px;
+    resize: vertical;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    padding: 16px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #0f172a;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  textarea:focus {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  button, .btn {
+    appearance: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 22px;
+    border-radius: 12px;
+    transition: transform 0.1s, box-shadow 0.15s, opacity 0.15s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  button:active, .btn:active { transform: scale(0.98); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(79, 70, 229, 0.35);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background: #ecfdf5;
+    border: 1px solid #bbebd4;
+    color: #047857;
+  }
+
+  .btn-secondary[hidden] { display: none; }
+
+  .error-box {
+    display: none;
+    margin-top: 14px;
+    background: #fff5f5;
+    border: 1px solid #f9dcdc;
+    color: #b91c1c;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 14px;
+    border-radius: 12px;
+    white-space: pre-wrap;
+  }
+
+  .preview-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 480px;
+    border: 2px dashed #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    overflow: hidden;
+  }
+
+  .preview-area img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .placeholder {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 14px;
+    padding: 40px;
+  }
+
+  .placeholder .big { font-size: 40px; margin-bottom: 12px; }
+
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 4px solid #e2e8f0;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 14px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">🛡️</div>
+    <div>
+      <h1>Fraud Report Image Generator</h1>
+      <div class="subtitle">Paste report JSON, generate a premium 1080×1350 PNG dashboard</div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- Left: JSON editor -->
+    <section class="panel">
+      <div class="panel-title">Report JSON</div>
+      <textarea id="json-editor" spellcheck="false"><%= samplePayload %></textarea>
+      <div class="actions">
+        <button id="generate-btn" class="btn-primary">⚡ Generate Image</button>
+        <a id="download-btn" class="btn btn-secondary" hidden download>⬇ Download PNG</a>
+      </div>
+      <div id="error-box" class="error-box"></div>
+    </section>
+
+    <!-- Right: live preview -->
+    <section class="panel">
+      <div class="panel-title">Live Preview</div>
+      <div id="preview-area" class="preview-area">
+        <div class="placeholder">
+          <div class="big">🖼️</div>
+          Your generated report image will appear here
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+  const editor = document.getElementById('json-editor');
+  const generateBtn = document.getElementById('generate-btn');
+  const downloadBtn = document.getElementById('download-btn');
+  const previewArea = document.getElementById('preview-area');
+  const errorBox = document.getElementById('error-box');
+
+  const showError = (message) => {
+    errorBox.textContent = message;
+    errorBox.style.display = 'block';
+  };
+
+  const clearError = () => {
+    errorBox.textContent = '';
+    errorBox.style.display = 'none';
+  };
+
+  generateBtn.addEventListener('click', async () => {
+    clearError();
+
+    // Validate JSON locally before hitting the API
+    let payload;
+    try {
+      payload = JSON.parse(editor.value);
+    } catch (err) {
+      showError('Invalid JSON: ' + err.message);
+      return;
+    }
+
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating…';
+    previewArea.innerHTML =
+      '<div class="placeholder"><div class="spinner"></div>Rendering your report…</div>';
+
+    try {
+      const res = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Generation failed');
+      }
+
+      // Show the freshly generated image immediately
+      const img = new Image();
+      img.src = data.image;
+      img.alt = 'Generated fraud report';
+      img.onload = () => {
+        previewArea.innerHTML = '';
+        previewArea.appendChild(img);
+      };
+
+      downloadBtn.href = data.image;
+      downloadBtn.download = data.image.split('/').pop();
+      downloadBtn.hidden = false;
+    } catch (err) {
+      showError(err.message);
+      previewArea.innerHTML =
+        '<div class="placeholder"><div class="big">🖼️</div>Your generated report image will appear here</div>';
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = '⚡ Generate Image';
+    }
+  });
+</script>
+</body>
+</html>

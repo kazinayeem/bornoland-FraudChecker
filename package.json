@@ -1,0 +1,28 @@
+{
+  "name": "fraud-report-image-api",
+  "version": "1.0.0",
+  "description": "Production-ready API that turns fraud report JSON into a premium dashboard PNG image using Puppeteer",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "fraud-report",
+    "puppeteer",
+    "png",
+    "express",
+    "image-generation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "puppeteer": "^24.0.0"
+  }
+}
