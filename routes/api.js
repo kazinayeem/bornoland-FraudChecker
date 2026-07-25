@@ -1,6 +1,6 @@
 /**
  * GET /api?number=01XXXXXXXXX
- * Looks up courier fraud-check data for a phone number and returns JSON.
+ * Main route — returns EliteMart fraud-check JSON for a phone number.
  */
 
 import { Router } from 'express';
@@ -21,6 +21,7 @@ router.get('/api', async (req, res, next) => {
       });
     }
 
+    // Pass through upstream JSON as-is
     res.json(result.data);
   } catch (err) {
     next(err);

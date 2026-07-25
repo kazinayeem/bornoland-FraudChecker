@@ -1,0 +1,13 @@
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      # Optional overrides:
+      # - FRAUD_CHECK_LOOKUP_URL=https://elitemart.com.bd/fraud-check/lookup
+    restart: unless-stopped
+    volumes:
+      - ./public/images:/app/public/images

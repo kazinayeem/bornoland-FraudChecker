@@ -1,268 +1,104 @@
-# Fraud Report Image API
+# Fraud Checker JSON API
 
-An Express API that converts courier fraud-report JSON into a premium
-**1080 × 1350 PNG** using EJS, Puppeteer Core, and serverless Chromium.
-It runs locally and deploys as a single Node.js Function on Vercel.
-
-## Features
-
-- `GET /` shows API home info and available endpoints
-- `GET /health` health check for uptime monitors
-- `GET /preview` provides a JSON editor, preview, and download UI
-- `POST /generate` generates a retina-quality PNG
-- Vercel-compatible Chromium via `@sparticuz/chromium`
-- Persistent production images in public Vercel Blob storage
-- Local images saved in `public/images`
-- Generated filenames use timestamps
-- Images older than 24 hours are removed during subsequent generations
-- Input validation and centralized error handling
-- No database or frontend framework
-
-## Requirements
-
-- Node.js 22
-- Google Chrome, Chromium, or Microsoft Edge for local development
-- A Vercel account
-- A public Vercel Blob store for deployed image URLs
-
-## Local Development
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) for the API home response.
-Open [http://localhost:3000/preview](http://localhost:3000/preview) for the image generator UI.
-Open [http://localhost:3000/health](http://localhost:3000/health) for the health check.
-
-The app automatically checks common Chrome locations on macOS, Linux, and
-Windows. If Chrome is installed elsewhere, create `.env.local` or export:
-
-```bash
-PUPPETEER_EXECUTABLE_PATH="/absolute/path/to/chrome" npm start
-```
-
-Without Blob credentials, local PNG files are written to `public/images`.
-
-## Deploy to Vercel
-
-### 1. Push the project to GitHub
-
-```bash
-git add .
-git commit -m "Make image API Vercel ready"
-git push
-```
-
-### 2. Import the repository
-
-1. Open [vercel.com/new](https://vercel.com/new).
-2. Import the GitHub repository.
-3. Keep **Framework Preset** as `Other`.
-4. Keep the root directory as the repository root.
-5. Do not add a custom build command.
-6. Click **Deploy**.
-
-Vercel detects the root `server.js`, imports its default Express app, and
-deploys it as one Node.js Function. `vercel.json` includes the EJS templates
-and gives image generation a 60-second maximum duration.
-
-### 3. Create and connect a public Blob store
-
-The deployed function cannot persist files in `public/images`; Vercel
-Functions have a read-only filesystem with only temporary `/tmp` storage.
-Generated reports therefore use Vercel Blob.
-
-1. Open the deployed project in the Vercel dashboard.
-2. Go to **Storage**.
-3. Select **Create Database** → **Blob**.
-4. Create a store with **Public** access.
-5. Connect it to Production, Preview, and Development environments.
-6. Redeploy the project from **Deployments**.
-
-Vercel automatically supplies the Blob credentials. Do not commit
-`BLOB_READ_WRITE_TOKEN` to Git.
-
-### 4. Test the deployment
-
-Open:
+Main goal: phone number দিলে **JSON data** পাওয়া।
 
 ```text
-https://your-project.vercel.app
+GET /api?number=01943124216
 ```
 
-Or test the API:
+Image generation optional — লাগলে আলাদা route আছে।
+
+## Primary API (JSON)
 
 ```bash
-curl -X POST "https://your-project.vercel.app/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "phone": "********* ",
+curl "http://localhost:3000/api?number=01943124216"
+```
+
+Success response (upstream JSON as-is):
+
+```json
+{
+  "success": true,
+  "data": {
+    "phone": "01943124216",
     "total_orders": 1,
     "total_delivered": 1,
     "total_cancelled": 0,
-    "delivery_rate": "100%",
-    "couriers": [
-      {
-        "courier_name": "Pathao",
-        "orders": 0,
-        "delivered": 0,
-        "cancelled": 0,
-        "delivery_rate": "95%",
-        "customer_rating": "Excellent Customer"
-      },
-      {
-        "courier_name": "RedX",
-        "orders": 1,
-        "delivered": 1,
-        "cancelled": 0,
-        "delivery_rate": "100%"
-      }
-    ]
-  }'
-```
-
-Production response:
-
-```json
-{
-  "success": true,
-  "image": "https://your-store.public.blob.vercel-storage.com/reports/report-1723456780000.png"
+    "delivery_rate": "100.00%",
+    "couriers": [ ... ]
+  }
 }
 ```
 
-The returned Blob URL is public and can be opened directly.
+Other routes:
 
-## Deploy with Vercel CLI
+| Route | Purpose |
+| --- | --- |
+| `GET /` | API info |
+| `GET /health` | Health check |
+| `GET /api?number=` | **Main JSON lookup** |
+| `GET /generate?number=` | Optional PNG |
+| `POST /generate` | Optional PNG from JSON body |
+| `GET /preview` | Optional UI |
 
-```bash
-npx vercel
-```
-
-After linking the project, create/connect the public Blob store in the
-dashboard and deploy production:
-
-```bash
-npx vercel --prod
-```
-
-To pull Vercel environment variables for local Blob testing:
+## Local run
 
 ```bash
-npx vercel env pull .env.local
-npm run dev
+npm install
+npm start
 ```
 
-When Blob credentials exist locally, generated images are uploaded to Blob
-instead of `public/images`.
+Open: `http://localhost:3000/api?number=01943124216`
 
-## API
+## Important: Vercel will not work for JSON lookup
 
-### `POST /generate`
+EliteMart Cloudflare Vercel IP block করে (`Just a moment...`).
 
-Required fields:
+**JSON API production-এ VPS-এ চালান** (DigitalOcean / Contabo / Hetzner / any VPS).
 
-- `phone`: non-empty string
-- `couriers`: non-empty array
-- `couriers[].courier_name`: non-empty string
+## Deploy on VPS (Docker)
 
-Other numeric and rate fields receive safe defaults when omitted.
-`customer_rating` is optional.
+```bash
+git clone <your-repo>
+cd bornoland-currier
+docker compose up -d --build
+```
 
-Success:
+Test:
 
-```json
-{
-  "success": true,
-  "image": "/images/report-1723456780000.png"
+```bash
+curl "http://YOUR_SERVER_IP:3000/api?number=01943124216"
+```
+
+Optional nginx + HTTPS:
+
+```nginx
+location / {
+  proxy_pass http://127.0.0.1:3000;
+  proxy_http_version 1.1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
 }
 ```
 
-Local responses use `/images/...`; Vercel responses use a full public Blob URL.
+## Optional image generation
 
-Validation error:
+Only if you also want PNG:
 
-```json
-{
-  "success": false,
-  "error": "\"phone\" is required and must be a non-empty string"
-}
+```bash
+curl "http://localhost:3000/generate?number=01943124216"
+# or
+curl -X POST http://localhost:3000/generate \
+  -H "Content-Type: application/json" \
+  -d @report.json
 ```
 
-## Project Structure
+On Vercel, image generation can work with Blob storage, but **number → JSON lookup will still fail** because of Cloudflare.
 
-```text
-.
-├── server.js
-├── vercel.json
-├── routes
-│   ├── home.js
-│   ├── health.js
-│   ├── preview.js
-│   └── report.js
-├── templates
-│   ├── preview.ejs
-│   └── report.ejs
-├── utils
-│   ├── imageGenerator.js
-│   ├── storage.js
-│   └── validate.js
-├── public
-│   └── images
-├── .env.example
-└── package.json
-```
+## Environment
 
-## How Vercel Mode Works
+See `.env.example`:
 
-1. Express receives `POST /generate`.
-2. EJS renders the report HTML.
-3. `puppeteer-core` launches the lightweight serverless Chromium package.
-4. Puppeteer captures the PNG directly into memory.
-5. The PNG is uploaded to the connected public Blob store.
-6. The API returns the permanent Blob URL.
-7. Reports older than 24 hours are cleaned up on later generation requests.
-
-The browser may be reused by warm Vercel Function instances. The code does not
-depend on that reuse, so cold starts are safe.
-
-## Troubleshooting
-
-### `Vercel Blob is not configured`
-
-Connect a **public** Blob store to the project and redeploy. Confirm that
-`BLOB_READ_WRITE_TOKEN` appears under **Settings → Environment Variables**.
-
-### `No local Chrome/Chromium installation found`
-
-Install Chrome or set `PUPPETEER_EXECUTABLE_PATH` to the browser executable.
-
-### Function timeout
-
-The function duration is set to 60 seconds in `vercel.json`. A normal warm
-request should finish much faster. Check Function logs for Chromium or Blob
-configuration errors.
-
-### `/api?number=...` returns 403 on Vercel
-
-EliteMart sits behind Cloudflare ("Just a moment..."). Vercel datacenter IPs
-are challenged, so a plain `fetch` often fails after deploy even though the
-same URL works in your browser.
-
-This project now retries the lookup inside headless Chromium (same browser used
-for PNG rendering). Redeploy after pulling the latest code.
-
-If Chromium is still challenged:
-
-1. Prefer hosting the API on a normal VPS (not Cloudflare-blocked cloud IPs), or
-2. Use `POST /generate` with the full report JSON copied from the EliteMart UI.
-
-## Official Vercel References
-
-- [Node.js runtime](https://vercel.com/docs/functions/runtimes/node-js)
-- [Express on Vercel](https://vercel.com/docs/frameworks/backend/express)
-- [Function filesystem support](https://vercel.com/docs/functions/runtimes#file-system-support)
-- [Vercel Blob server uploads](https://vercel.com/docs/vercel-blob/server-upload)
-- [Public Blob storage](https://vercel.com/docs/vercel-blob/public-storage)
-- [Function duration configuration](https://vercel.com/docs/functions/configuring-functions/duration)
+- `FRAUD_CHECK_LOOKUP_URL` — override upstream URL
+- `BLOB_READ_WRITE_TOKEN` — only needed for Vercel image storage
+- `PUPPETEER_EXECUTABLE_PATH` — Chrome path for local PNG
