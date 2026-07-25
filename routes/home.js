@@ -18,6 +18,7 @@ router.get('/', (req, res) => {
       health: 'GET /health',
       preview: 'GET /preview',
       generate: 'POST /generate',
+      api: 'GET /api?number=01XXXXXXXXX',
       images: 'GET /images/report-xxxx.png',
     },
   });

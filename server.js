@@ -16,6 +16,7 @@ import homeRoutes from './routes/home.js';
 import healthRoutes from './routes/health.js';
 import reportRoutes from './routes/report.js';
 import previewRoutes from './routes/preview.js';
+import apiRoutes from './routes/api.js';
 import { closeBrowser } from './utils/imageGenerator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -44,6 +45,7 @@ app.use('/', homeRoutes);
 app.use('/', healthRoutes);
 app.use('/', previewRoutes);
 app.use('/', reportRoutes);
+app.use('/', apiRoutes);
 
 // 404 handler for unknown routes
 app.use((req, res) => {
