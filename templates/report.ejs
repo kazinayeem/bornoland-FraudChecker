@@ -36,6 +36,7 @@
   /* ------------------------------- Card ------------------------------ */
   .card {
     flex: 1;
+    min-width: 0; /* never let table content push the card past the viewport */
     background: #ffffff;
     border-radius: 22px;
     box-shadow:
@@ -169,7 +170,14 @@
   table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed; /* fixed column widths so long badges can't stretch the layout */
   }
+
+  col.col-courier   { width: 38%; }
+  col.col-orders    { width: 13%; }
+  col.col-delivered { width: 16%; }
+  col.col-cancelled { width: 16%; }
+  col.col-rate      { width: 17%; }
 
   thead th {
     background: #f8fafc;
@@ -230,12 +238,13 @@
     align-items: center;
     gap: 4px;
     margin-top: 4px;
+    max-width: 100%;
     background: linear-gradient(135deg, #ecfdf5, #d9f7e9);
     border: 1px solid #bbebd4;
     color: #047857;
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 700;
-    padding: 3px 8px;
+    padding: 3px 7px;
     border-radius: 999px;
     letter-spacing: 0.2px;
     white-space: nowrap;
@@ -398,6 +407,13 @@
   <!-- Courier table -->
   <div class="table-wrap">
     <table>
+      <colgroup>
+        <col class="col-courier" />
+        <col class="col-orders" />
+        <col class="col-delivered" />
+        <col class="col-cancelled" />
+        <col class="col-rate" />
+      </colgroup>
       <thead>
         <tr>
           <th>Courier</th>

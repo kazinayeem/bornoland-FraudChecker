@@ -4,8 +4,8 @@
  * Express server that receives fraud report JSON and renders a
  * premium dashboard-style PNG (1080x1350) using Puppeteer.
  *
- * Entry point: boots the HTTP server, mounts routes, serves generated
- * images statically and schedules the 24-hour image cleanup job.
+ * Vercel imports the default Express app as one Node.js Function.
+ * Local development starts a normal HTTP server from this same file.
  */
 
 import express from 'express';
@@ -15,7 +15,6 @@ import { fileURLToPath } from 'node:url';
 import reportRoutes from './routes/report.js';
 import previewRoutes from './routes/preview.js';
 import { closeBrowser } from './utils/imageGenerator.js';
-import { scheduleImageCleanup } from './utils/cleanup.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -31,8 +30,11 @@ app.set('views', path.join(__dirname, 'templates'));
 // Parse JSON bodies (reports are small, 1mb is plenty)
 app.use(express.json({ limit: '1mb' }));
 
-// Serve generated images: GET /images/report-xxxx.png
-app.use(express.static(path.join(__dirname, 'public')));
+// Local images are served by Express. On Vercel, public/** is served by its CDN
+// and generated images are returned directly from Vercel Blob.
+if (!process.env.VERCEL) {
+  app.use(express.static(path.join(__dirname, 'public')));
+}
 
 /* --------------------------------- Routes --------------------------------- */
 
@@ -59,23 +61,23 @@ app.use((err, req, res, next) => {
   });
 });
 
-/* --------------------------------- Startup -------------------------------- */
+/* ----------------------------- Runtime startup ---------------------------- */
 
-const server = app.listen(PORT, () => {
-  console.log(`✅ Fraud Report Image API running at http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, () => {
+    console.log(`✅ Fraud Report Image API running at http://localhost:${PORT}`);
+  });
 
-// Delete images older than 24 hours, checked every hour
-scheduleImageCleanup();
+  const shutdown = async (signal) => {
+    console.log(`\n${signal} received — shutting down gracefully...`);
+    server.close();
+    await closeBrowser();
+    process.exit(0);
+  };
 
-/* ---------------------------- Graceful shutdown --------------------------- */
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+}
 
-const shutdown = async (signal) => {
-  console.log(`\n${signal} received — shutting down gracefully...`);
-  server.close();
-  await closeBrowser();
-  process.exit(0);
-};
-
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+// Required by Vercel's zero-config Express deployment.
+export default app;

@@ -5,11 +5,12 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node --env-file-if-exists=.env.local server.js",
+    "dev": "node --env-file-if-exists=.env.local --watch server.js",
+    "deploy": "vercel --prod"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "22.x"
   },
   "keywords": [
     "fraud-report",
@@ -21,8 +22,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@sparticuz/chromium": "^149.0.0",
+    "@vercel/blob": "^2.6.1",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
-    "puppeteer": "^24.0.0"
+    "puppeteer-core": "^25.3.0"
   }
 }

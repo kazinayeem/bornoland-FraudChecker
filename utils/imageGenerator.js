@@ -8,16 +8,17 @@
  * (launching Chromium per request is the main performance killer).
  */
 
-import puppeteer from 'puppeteer';
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
 import ejs from 'ejs';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { saveReportImage } from './storage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const TEMPLATE_PATH = path.join(__dirname, '..', 'templates', 'report.ejs');
-const IMAGES_DIR = path.join(__dirname, '..', 'public', 'images');
 
 /**
  * Target output: 1080 x 1350 PNG.
@@ -29,14 +30,58 @@ const VIEWPORT = { width: 540, height: 675, deviceScaleFactor: 2 };
 /** @type {import('puppeteer').Browser | null} */
 let browserInstance = null;
 
+const findLocalBrowser = async () => {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    process.env.LOCALAPPDATA
+      ? path.join(
+          process.env.LOCALAPPDATA,
+          'Google',
+          'Chrome',
+          'Application',
+          'chrome.exe',
+        )
+      : null,
+  ].filter(Boolean);
+
+  for (const executablePath of candidates) {
+    try {
+      await fs.access(executablePath);
+      return executablePath;
+    } catch {
+      // Try the next known browser location.
+    }
+  }
+
+  throw new Error(
+    'No local Chrome/Chromium installation found. Set PUPPETEER_EXECUTABLE_PATH.',
+  );
+};
+
 /** Lazily launch (and reuse) a single headless browser. */
 const getBrowser = async () => {
   if (browserInstance && browserInstance.connected) {
     return browserInstance;
   }
+
+  const isVercel = Boolean(process.env.VERCEL);
+  const executablePath = isVercel
+    ? await chromium.executablePath()
+    : await findLocalBrowser();
+
   browserInstance = await puppeteer.launch({
-    headless: 'shell',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'],
+    executablePath,
+    headless: true,
+    args: isVercel
+      ? chromium.args
+      : ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'],
   });
   return browserInstance;
 };
@@ -53,22 +98,19 @@ export const closeBrowser = async () => {
  * Generates a report PNG from validated report data.
  *
  * @param {object} reportData - Normalized fraud report data
- * @returns {Promise<string>} Public URL path of the generated image, e.g. "/images/report-172345678.png"
+ * @returns {Promise<string>} Public image URL
  */
 export const generateReportImage = async (reportData) => {
   // 1. Render the EJS template to a full HTML document
   const html = await ejs.renderFile(TEMPLATE_PATH, { report: reportData });
 
-  // 2. Ensure the output directory exists
-  await fs.mkdir(IMAGES_DIR, { recursive: true });
-
-  // 3. Auto filename using timestamp
+  // 2. Auto filename using timestamp
   const filename = `report-${Date.now()}.png`;
-  const outputPath = path.join(IMAGES_DIR, filename);
 
-  // 4. Screenshot with Puppeteer
+  // 3. Screenshot into memory; Vercel's deployment filesystem is read-only.
   const browser = await getBrowser();
   const page = await browser.newPage();
+  let screenshot;
 
   try {
     await page.setViewport(VIEWPORT);
@@ -77,8 +119,7 @@ export const generateReportImage = async (reportData) => {
     // Make sure web fonts are fully loaded before capturing
     await page.evaluate(() => document.fonts.ready);
 
-    await page.screenshot({
-      path: outputPath,
+    screenshot = await page.screenshot({
       type: 'png',
       clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
     });
@@ -87,5 +128,6 @@ export const generateReportImage = async (reportData) => {
     await page.close().catch(() => {});
   }
 
-  return `/images/${filename}`;
+  // 4. Vercel Blob in production; public/images during local development.
+  return saveReportImage(Buffer.from(screenshot), filename);
 };

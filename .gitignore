@@ -2,3 +2,5 @@ node_modules/
 public/images/*.png
 .DS_Store
 .env
+.env.local
+.vercel/
