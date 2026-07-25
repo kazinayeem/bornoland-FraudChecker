@@ -94,7 +94,7 @@ Or test the API:
 curl -X POST "https://your-project.vercel.app/generate" \
   -H "Content-Type: application/json" \
   -d '{
-    "phone": "01943124216",
+    "phone": "********* ",
     "total_orders": 1,
     "total_delivered": 1,
     "total_cancelled": 0,
