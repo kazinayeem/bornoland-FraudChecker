@@ -244,6 +244,22 @@ The function duration is set to 60 seconds in `vercel.json`. A normal warm
 request should finish much faster. Check Function logs for Chromium or Blob
 configuration errors.
 
+### `/api?number=...` returns 403 on Vercel
+
+EliteMart sits behind Cloudflare. Vercel datacenter IPs are often blocked, so
+the same lookup that works on your laptop can fail after deploy.
+
+Fixes:
+
+1. Redeploy the latest code (better browser headers + cookie warm-up).
+2. If it still returns 403, open [elitemart.com.bd/fraud-check](https://elitemart.com.bd/fraud-check) in Chrome, copy the request `Cookie` header from DevTools → Network, then add it in Vercel as:
+
+```bash
+FRAUD_CHECK_COOKIE=cf_clearance=...; other=...
+```
+
+3. Redeploy after saving the env var. Cookies expire, so refresh them when 403 returns.
+
 ## Official Vercel References
 
 - [Node.js runtime](https://vercel.com/docs/functions/runtimes/node-js)

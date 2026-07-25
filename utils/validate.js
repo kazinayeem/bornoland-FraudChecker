@@ -47,7 +47,10 @@ export const validateReportPayload = (body) => {
       cancelled: Number(c.cancelled) || 0,
       delivery_rate: String(c.delivery_rate ?? '0%'),
       customer_rating: typeof c.customer_rating === 'string' && c.customer_rating.trim().length > 0
-        ? c.customer_rating.trim()
+        ? c.customer_rating
+            .trim()
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (ch) => ch.toUpperCase())
         : null,
     })),
   };
