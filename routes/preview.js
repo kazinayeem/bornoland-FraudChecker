@@ -1,5 +1,5 @@
 /**
- * GET /
+ * GET /preview
  * Interactive preview page: JSON editor, generate button,
  * live preview and download button.
  */
@@ -41,7 +41,7 @@ const SAMPLE_PAYLOAD = {
   ],
 };
 
-router.get('/', (req, res) => {
+router.get('/preview', (req, res) => {
   res.render('preview', {
     samplePayload: JSON.stringify(SAMPLE_PAYLOAD, null, 2),
   });

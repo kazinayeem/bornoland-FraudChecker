@@ -6,8 +6,10 @@ It runs locally and deploys as a single Node.js Function on Vercel.
 
 ## Features
 
+- `GET /` shows API home info and available endpoints
+- `GET /health` health check for uptime monitors
+- `GET /preview` provides a JSON editor, preview, and download UI
 - `POST /generate` generates a retina-quality PNG
-- `GET /` provides a JSON editor, preview, and download UI
 - Vercel-compatible Chromium via `@sparticuz/chromium`
 - Persistent production images in public Vercel Blob storage
 - Local images saved in `public/images`
@@ -30,7 +32,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) for the API home response.
+Open [http://localhost:3000/preview](http://localhost:3000/preview) for the image generator UI.
+Open [http://localhost:3000/health](http://localhost:3000/health) for the health check.
 
 The app automatically checks common Chrome locations on macOS, Linux, and
 Windows. If Chrome is installed elsewhere, create `.env.local` or export:
@@ -193,6 +197,8 @@ Validation error:
 ├── server.js
 ├── vercel.json
 ├── routes
+│   ├── home.js
+│   ├── health.js
 │   ├── preview.js
 │   └── report.js
 ├── templates

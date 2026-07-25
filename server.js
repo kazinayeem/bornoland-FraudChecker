@@ -12,6 +12,8 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import homeRoutes from './routes/home.js';
+import healthRoutes from './routes/health.js';
 import reportRoutes from './routes/report.js';
 import previewRoutes from './routes/preview.js';
 import { closeBrowser } from './utils/imageGenerator.js';
@@ -38,6 +40,8 @@ if (!process.env.VERCEL) {
 
 /* --------------------------------- Routes --------------------------------- */
 
+app.use('/', homeRoutes);
+app.use('/', healthRoutes);
 app.use('/', previewRoutes);
 app.use('/', reportRoutes);
 
